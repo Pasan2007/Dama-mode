@@ -63,15 +63,14 @@ jobs:
           log_level = 2
           EOF
 
-      - name: Build APK
-        run: |
-          buildozer android debug 2>&1 | tail -50
+      - name: Find APK
+        run: find . -name "*.apk" 2>/dev/null
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: DamaMode-APK
-          path: bin/*.apk
+          path: "**/*.apk"
           retention-days: 30
 
       - name: Show error if build failed
