@@ -1,4 +1,4 @@
-name: Build Dama Mode APK
+name: Build Dama Mode v4 APK
 on: [push]
 
 jobs:
@@ -28,62 +28,82 @@ jobs:
             libffi-dev \
             libssl-dev
 
+      - name: Force Java 17
+        run: |
+          sudo update-alternatives --set java /usr/lib/jvm/java-17-openjdk-amd64/bin/java
+          sudo update-alternatives --set javac /usr/lib/jvm/java-17-openjdk-amd64/bin/javac
+          echo "JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64" >> $GITHUB_ENV
+          java -version && javac -version
+
       - name: Install buildozer and cython
         run: |
           pip install --upgrade pip setuptools
           pip install cython==0.29.36
           pip install buildozer==1.5.0
 
-      - name: Create main.py
-        run: cp dama_mobile.py main.py
+      - name: Create main.py from mobile v4
+        run: |
+          ls -la
+          cp dama_mobile_v4.py main.py
 
       - name: Create buildozer.spec
         run: |
-          cat > buildozer.spec << 'EOF'
-          [app]
-          title = Dama Mode
-          package.name = damamode
-          package.domain = org.dama
-          source.dir = .
-          source.include_exts = py
-          version = 1.0
-          requirements = python3==3.10.12,kivy==2.2.1
-          orientation = portrait
-          fullscreen = 0
-          android.permissions = INTERNET
-          android.api = 33
-          android.minapi = 21
-          android.ndk = 25b
-          android.accept_sdk_license = True
-          android.archs = arm64-v8a
-          log_level = 2
-          warn_on_root = 1
-          [buildozer]
-          log_level = 2
-          EOF
+          cat > buildozer.spec << 'SPEC'
+[app]
+title = Dama Mode v4
+package.name = damamodev4
+package.domain = org.dama
+source.dir = .
+source.include_exts = py
+version = 4.0
+requirements = python3==3.10.12,kivy==2.2.1
+orientation = portrait
+fullscreen = 0
+android.permissions = INTERNET
+android.api = 33
+android.minapi = 21
+android.ndk = 25b
+android.accept_sdk_license = True
+android.archs = arm64-v8a
+log_level = 2
+warn_on_root = 1
+
+[buildozer]
+log_level = 2
+SPEC
+
+      - name: Download NDK manually
+        run: |
+          mkdir -p /home/runner/.buildozer/android/platform
+          cd /home/runner/.buildozer/android/platform
+          wget -q https://dl.google.com/android/repository/android-ndk-r25b-linux.zip
+          unzip -q android-ndk-r25b-linux.zip
+          echo "NDK ready"
 
       - name: Build APK
-        run: buildozer android debug 2>&1
+        run: |
+          export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+          export PATH=$JAVA_HOME/bin:$PATH
+          buildozer android debug 2>&1
 
-      - name: Find APK after build
+      - name: Find APK
         if: always()
         run: |
           echo "=== Searching for APK ==="
           find . -name "*.apk" 2>/dev/null
-          echo "=== bin folder ==="
-          ls -la bin/ 2>/dev/null || echo "bin folder not found"
+          ls -la bin/ 2>/dev/null || echo "No bin folder"
 
       - name: Upload APK
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: DamaMode-APK
+          name: DamaMode-v4-APK
           path: "**/*.apk"
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Show error log if failed
+      - name: Show log if failed
         if: failure()
         run: |
-          echo "=== BUILD LOG ==="
-          cat .buildozer/logs/*.log 2>/dev/null || echo "No log file"
+          echo "=== LAST 100 LINES ==="
+          find .buildozer -name "*.log" 2>/dev/null | xargs tail -100 2>/dev/null || echo "No log"
