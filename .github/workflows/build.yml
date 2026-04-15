@@ -1,0 +1,81 @@
+name: Build Dama Mode APK
+
+on: [push]
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            openjdk-17-jdk \
+            zip unzip git \
+            autoconf libtool \
+            pkg-config \
+            zlib1g-dev \
+            libncurses5-dev \
+            cmake \
+            libffi-dev \
+            libssl-dev
+
+      - name: Install buildozer and cython
+        run: |
+          pip install --upgrade pip setuptools
+          pip install cython==0.29.36
+          pip install buildozer==1.5.0
+
+      - name: Create main.py
+        run: cp dama_mobile.py main.py
+
+      - name: Create buildozer.spec
+        run: |
+          cat > buildozer.spec << 'EOF'
+          [app]
+          title = Dama Mode
+          package.name = damamode
+          package.domain = org.dama
+          source.dir = .
+          source.include_exts = py
+          version = 1.0
+          requirements = python3==3.10.12,kivy==2.2.1
+          orientation = portrait
+          fullscreen = 0
+          android.permissions = INTERNET
+          android.api = 33
+          android.minapi = 21
+          android.ndk = 25b
+          android.accept_sdk_license = True
+          android.archs = arm64-v8a
+          log_level = 2
+          warn_on_root = 1
+          [buildozer]
+          log_level = 2
+          EOF
+
+      - name: Build APK
+        run: |
+          buildozer android debug 2>&1 | tail -50
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: DamaMode-APK
+          path: bin/*.apk
+          retention-days: 30
+
+      - name: Show error if build failed
+        if: failure()
+        run: |
+          echo "=== FULL BUILD LOG ==="
+          cat .buildozer/logs/*.log 2>/dev/null || echo "No log file found"
