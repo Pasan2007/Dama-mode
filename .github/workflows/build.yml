@@ -1,5 +1,4 @@
 name: Build Dama Mode APK
-
 on: [push]
 
 jobs:
@@ -63,18 +62,28 @@ jobs:
           log_level = 2
           EOF
 
-      - name: Find APK
-        run: find . -name "*.apk" 2>/dev/null
+      - name: Build APK
+        run: buildozer android debug 2>&1
+
+      - name: Find APK after build
+        if: always()
+        run: |
+          echo "=== Searching for APK ==="
+          find . -name "*.apk" 2>/dev/null
+          echo "=== bin folder ==="
+          ls -la bin/ 2>/dev/null || echo "bin folder not found"
 
       - name: Upload APK
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: DamaMode-APK
           path: "**/*.apk"
+          if-no-files-found: warn
           retention-days: 30
 
-      - name: Show error if build failed
+      - name: Show error log if failed
         if: failure()
         run: |
-          echo "=== FULL BUILD LOG ==="
-          cat .buildozer/logs/*.log 2>/dev/null || echo "No log file found"
+          echo "=== BUILD LOG ==="
+          cat .buildozer/logs/*.log 2>/dev/null || echo "No log file"
